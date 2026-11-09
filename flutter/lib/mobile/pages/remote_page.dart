@@ -41,6 +41,50 @@ void _disableAndroidSoftKeyboard({bool? isKeyboardVisible}) {
   }
 }
 
+// Keys a soft keyboard cannot produce. Pressing one of them while the soft
+// keyboard is open means the user is on a hardware keyboard, so the soft
+// keyboard can be dismissed and the key routed as a raw key event instead of
+// being swallowed by the text field. Plain character keys are excluded: those
+// still arrive through the input method and must keep working.
+bool _isHardwareOnlyKeyEvent(KeyEvent event) {
+  if (event is! KeyDownEvent) return false;
+  // Soft keyboards that synthesize key events (Backspace/Enter) report a HID
+  // usage outside the normal keyboard range, see the SwiftKey workaround above.
+  if ((event.physicalKey.usbHidUsage >> 20) != 0) return false;
+  final keyboard = HardwareKeyboard.instance;
+  if (keyboard.isControlPressed ||
+      keyboard.isAltPressed ||
+      keyboard.isMetaPressed) {
+    return true;
+  }
+  return <PhysicalKeyboardKey>{
+    PhysicalKeyboardKey.arrowUp,
+    PhysicalKeyboardKey.arrowDown,
+    PhysicalKeyboardKey.arrowLeft,
+    PhysicalKeyboardKey.arrowRight,
+    PhysicalKeyboardKey.tab,
+    PhysicalKeyboardKey.escape,
+    PhysicalKeyboardKey.home,
+    PhysicalKeyboardKey.end,
+    PhysicalKeyboardKey.pageUp,
+    PhysicalKeyboardKey.pageDown,
+    PhysicalKeyboardKey.insert,
+    PhysicalKeyboardKey.delete,
+    PhysicalKeyboardKey.f1,
+    PhysicalKeyboardKey.f2,
+    PhysicalKeyboardKey.f3,
+    PhysicalKeyboardKey.f4,
+    PhysicalKeyboardKey.f5,
+    PhysicalKeyboardKey.f6,
+    PhysicalKeyboardKey.f7,
+    PhysicalKeyboardKey.f8,
+    PhysicalKeyboardKey.f9,
+    PhysicalKeyboardKey.f10,
+    PhysicalKeyboardKey.f11,
+    PhysicalKeyboardKey.f12,
+  }.contains(event.physicalKey);
+}
+
 bool handleMobileLocalKeyEvent(KeyEvent event,
     {required bool remoteFocused, required InputModel inputModel}) {
   if (event is KeyUpEvent && inputModel.isViewOnly) {
@@ -583,8 +627,17 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     );
   }
 
-  bool _handleLocalKeyEvent(KeyEvent event) => handleMobileLocalKeyEvent(event,
-      remoteFocused: _physicalFocusNode.hasPrimaryFocus, inputModel: inputModel);
+  bool _handleLocalKeyEvent(KeyEvent event) {
+    if (_showEdit && mounted && _isHardwareOnlyKeyEvent(event)) {
+      setState(() => _showEdit = false);
+      _mobileFocusNode.unfocus();
+      _physicalFocusNode.requestFocus();
+      gFFI.invokeMethod("enable_soft_keyboard", false);
+    }
+    return handleMobileLocalKeyEvent(event,
+        remoteFocused: _physicalFocusNode.hasPrimaryFocus,
+        inputModel: inputModel);
+  }
 
   Widget getRawPointerAndKeyBody(Widget child) {
     final ffiModel = Provider.of<FfiModel>(context);

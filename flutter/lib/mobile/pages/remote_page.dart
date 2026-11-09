@@ -759,6 +759,12 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
           if (showCursorPaint) {
             paints.add(CursorPaint(widget.id));
           }
+          if (!showCursorPaint &&
+              gFFI.ffiModel.isPeerAndroid &&
+              !gFFI.canvasModel.cursorEmbedded &&
+              !gFFI.inputModel.relativeMouseMode.value) {
+            paints.add(CursorPaint(widget.id));
+          }
           if (gFFI.ffiModel.touchMode) {
             paints.add(FloatingMouse(
               ffi: gFFI,

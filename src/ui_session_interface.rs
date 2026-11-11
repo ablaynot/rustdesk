@@ -905,6 +905,23 @@ impl<T: InvokeUiSession> Session<T> {
             let key = Key::_Raw(chars[0] as _);
             self._input_key(key, down, press, alt, ctrl, shift, command);
         } else {
+            // On Android: translate VK_ codes for single letters (VK_A..VK_Z) to
+            // actual characters to avoid layout-dependent mapping (e.g. Z/Y swap on QWERTZ).
+            #[cfg(target_os = "android")]
+            let name = if name.starts_with("VK_") && name.len() == 4 {
+                if let Some(c) = name.chars().nth(3) {
+                    if c.is_ascii_alphabetic() {
+                        // Send as raw character to bypass layout-dependent VK mapping.
+                        let key = Key::_Raw(c.to_ascii_lowercase() as _);
+                        self._input_key(key, down, press, alt, ctrl, shift, command);
+                        return;
+                    }
+                }
+                name
+            } else {
+                name
+            };
+
             if let Some(key) = KEY_MAP.get(name) {
                 self._input_key(key.clone(), down, press, alt, ctrl, shift, command);
             }

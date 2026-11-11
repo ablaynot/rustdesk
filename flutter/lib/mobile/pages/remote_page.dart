@@ -628,7 +628,11 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   }
 
   bool _handleLocalKeyEvent(KeyEvent event) {
-    if (_showEdit && mounted && _isHardwareOnlyKeyEvent(event)) {
+    if (_showEdit && mounted) {
+      // Any hardware key event dismisses the soft keyboard so that real
+      // key presses (from a connected PC or physical keyboard) are not
+      // swallowed by the Flutter text field. Only plain character keys
+      // are kept working through the input method path below.
       setState(() => _showEdit = false);
       _mobileFocusNode.unfocus();
       _physicalFocusNode.requestFocus();
